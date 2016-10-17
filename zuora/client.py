@@ -20,7 +20,7 @@ from datetime import datetime, date, timedelta
 from os import path
 import re
 import httplib2
-
+import os
 from suds import WebFault
 from suds.client import Client
 from suds.sax.element import Element
@@ -28,8 +28,9 @@ from suds.xsd.doctor import Import, ImportDoctor
 from suds.transport.http import HttpAuthenticated, HttpTransport
 from suds.transport import Reply
 from suds.sax.text import Text
-
+from rest_client import RestClient
 import logging
+
 log = logging.getLogger(__name__)
 
 # Tell suds to stop logging and stfu (it logs noise as errors)
@@ -37,9 +38,6 @@ log_suds = logging.getLogger('suds')
 log_suds.propagate = False
 
 SOAP_TIMESTAMP = '%Y-%m-%dT%H:%M:%S-06:00'
-
-
-from rest_client import RestClient
 
 
 class HttpTransportWithKeepAlive(HttpAuthenticated, object):
@@ -51,8 +49,7 @@ class HttpTransportWithKeepAlive(HttpAuthenticated, object):
             cert_file = path_to_certs + "/PCA-3G5.pem"
             self.http = httplib2.Http(timeout=20, ca_certs=cert_file)
         else:
-            self.http = httplib2.Http(timeout=20,
-                                  disable_ssl_certificate_validation=True)
+            self.http = httplib2.Http(timeout=20, disable_ssl_certificate_validation=True)
 
     def open(self, request):
         return HttpTransport.open(self, request)
@@ -108,7 +105,7 @@ class Zuora:
         # Assign settings
         self.username = zuora_settings["username"]
         self.password = zuora_settings["password"]
-        self.wsdl_file = zuora_settings["wsdl_file"]
+        self.wsdl_file = os.path.abspath(zuora_settings["wsdl_file"])
         self.base_dir = path.dirname(__file__)
         self.authorize_gateway = zuora_settings.get("gateway_name")
         self.create_test_users = zuora_settings.get("test_users", None)
@@ -120,11 +117,8 @@ class Zuora:
         imp.filter.add('http://fault.api.zuora.com/')
         schema_doctor = ImportDoctor(imp)
 
-        wsdl_file = 'file://%s' % path.abspath(
-                                    self.base_dir + "/" + self.wsdl_file)
-
         self.client = Client(
-                        url=wsdl_file,
+                        url='file://{}'.format(self.wsdl_file),
                         doctor=schema_doctor,
                         cache=None,
                         transport=HttpTransportWithKeepAlive(self.use_cert))
